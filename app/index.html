@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Coast Cover Studio</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="app">
+  <section class="controls">
+    <h1>Neon Coast Cover Studio</h1>
+    <p class="tag">Your photo, your caption — a GTA-style multi-panel cover in seconds. Fully offline; photos never leave this machine.</p>
+
+    <label>Photos (up to 4)
+      <input id="photo" type="file" accept="image/*" multiple>
+    </label>
+    <button id="samples" type="button">Load sample photos</button>
+    <div id="tray" class="tray" aria-label="Loaded photos"></div>
+
+    <h2>Layout</h2>
+    <div id="layouts" class="choices"></div>
+
+    <h2>Grade</h2>
+    <div id="grades" class="choices"></div>
+
+    <div id="panel-editor" class="panel-editor"></div>
+
+    <label>Caption
+      <input id="caption" type="text" maxlength="28" value="NEON COAST">
+    </label>
+    <label>Subtitle
+      <input id="subtitle" type="text" maxlength="40" value="Chasing the golden hour">
+    </label>
+    <label class="check"><input id="grain" type="checkbox" checked> Film grain</label>
+    <label>Preview size
+      <select id="preview-size"></select>
+    </label>
+    <button id="export" type="button" class="primary">Export all 3 PNGs</button>
+    <p class="sizes">1080 × 1080 · 1080 × 1350 · 1920 × 1080 — one click.</p>
+    <p id="status" role="status"></p>
+    <p class="fine">Original art, lettering and fonts — no Rockstar Games logo, artwork or fonts.</p>
+  </section>
+  <section class="preview">
+    <canvas id="cover" width="1080" height="1080" aria-label="The cover preview"></canvas>
+    <p class="hint">Click a panel to edit it. Drag its photo to move it, scroll to zoom.</p>
+  </section>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
