@@ -2,10 +2,13 @@
 // Draws the multi-panel GTA-style poster: a photo (or several) in framed panels,
 // a Vice City sunset/neon colour grade, bold genre lettering and a title band.
 // Pure canvas 2D, no libraries. Everything drawn here is original art.
+// Layouts: grid (2x2), hero (one tall + three stacked), duo (two tall), solo (full-bleed).
+// Grades: sunset, neon, golden, noir, haze, miami — each a gradient wash over the photo.
 
 export const LAYOUTS = {
   grid: { panels: 4, label: 'Four-panel grid' },
   hero: { panels: 4, label: 'Hero and three' },
+  duo: { panels: 2, label: 'Two tall panels' },
   solo: { panels: 1, label: 'Full-bleed' },
 };
 
@@ -15,6 +18,33 @@ export const GRADES = {
   golden: { label: 'Golden Hour' },
   noir: { label: 'Palm Noir' },
   haze: { label: 'Heat Haze' },
+  miami: { label: 'Miami Duotone' },
+};
+
+// The colour wash each grade paints over a photo, as gradient stops.
+// Stops are [offset, colour]; `mode` is how the wash blends with the photo.
+const GRADE_WASHES = {
+  sunset: {
+    mode: 'overlay', alpha: 0.35, vertical: true,
+    stops: [[0, 'rgba(255, 190, 90, 0.10)'], [0.55, 'rgba(255, 110, 70, 0.16)'], [1, 'rgba(214, 40, 130, 0.42)']],
+  },
+  neon: {
+    mode: 'overlay', alpha: 0.35, vertical: false,
+    stops: [[0, 'rgba(0, 229, 204, 0.20)'], [0.5, 'rgba(120, 40, 180, 0.12)'], [1, 'rgba(255, 45, 150, 0.40)']],
+  },
+  golden: {
+    mode: 'overlay', alpha: 0.35, vertical: true,
+    stops: [[0, 'rgba(255, 214, 120, 0.22)'], [1, 'rgba(255, 140, 40, 0.30)']],
+  },
+  haze: {
+    mode: 'overlay', alpha: 0.35, vertical: false,
+    stops: [[0, 'rgba(255, 120, 200, 0.22)'], [1, 'rgba(120, 80, 255, 0.30)']],
+  },
+  miami: {
+    mode: 'overlay', alpha: 0.4, vertical: false,
+    stops: [[0, 'rgba(0, 210, 190, 0.28)'], [0.5, 'rgba(90, 60, 200, 0.10)'], [1, 'rgba(255, 40, 140, 0.38)']],
+  },
+  noir: null, // Noir is a filter on the photo itself, not a wash (see drawPanelPhoto).
 };
 
 /** A fresh default state: two sample photos across four panels. */
@@ -46,6 +76,13 @@ export function panelRects(layout, w, h) {
   if (layout === 'solo') {
     return [{ x: m, y: m, w: iw, h: ih }];
   }
+  if (layout === 'duo') {
+    const cw = (iw - g) / 2;
+    return [
+      { x: m, y: m, w: cw, h: ih },
+      { x: m + cw + g, y: m, w: cw, h: ih },
+    ];
+  }
   if (layout === 'hero') {
     const leftW = Math.round(iw * 0.58);
     const rightX = m + leftW + g;
@@ -71,39 +108,22 @@ export function panelRects(layout, w, h) {
 /** The sunset/neon grade for one panel, painted over its photo. */
 function paintGrade(ctx, rect, grade) {
   const { x, y, w, h } = rect;
+  const wash = GRADE_WASHES[grade];
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
-  let wash;
-  if (grade === 'sunset') {
-    wash = ctx.createLinearGradient(0, y, 0, y + h);
-    wash.addColorStop(0, 'rgba(255, 190, 90, 0.10)');
-    wash.addColorStop(0.55, 'rgba(255, 110, 70, 0.16)');
-    wash.addColorStop(1, 'rgba(214, 40, 130, 0.42)');
-  } else if (grade === 'neon') {
-    wash = ctx.createLinearGradient(x, y, x + w, y + h);
-    wash.addColorStop(0, 'rgba(0, 229, 204, 0.20)');
-    wash.addColorStop(0.5, 'rgba(120, 40, 180, 0.12)');
-    wash.addColorStop(1, 'rgba(255, 45, 150, 0.40)');
-  } else if (grade === 'golden') {
-    wash = ctx.createLinearGradient(0, y, 0, y + h);
-    wash.addColorStop(0, 'rgba(255, 214, 120, 0.22)');
-    wash.addColorStop(1, 'rgba(255, 140, 40, 0.30)');
-  } else if (grade === 'haze') {
-    wash = ctx.createLinearGradient(x, y, x + w, y);
-    wash.addColorStop(0, 'rgba(255, 120, 200, 0.22)');
-    wash.addColorStop(1, 'rgba(120, 80, 255, 0.30)');
-  } else {
-    wash = null;
-  }
   if (wash) {
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = wash;
+    const grad = wash.vertical
+      ? ctx.createLinearGradient(0, y, 0, y + h)
+      : ctx.createLinearGradient(x, y, x + w, y + h);
+    for (const [offset, colour] of wash.stops) grad.addColorStop(offset, colour);
+    ctx.globalCompositeOperation = wash.mode;
+    ctx.fillStyle = grad;
     ctx.fillRect(x, y, w, h);
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = wash;
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = wash.alpha;
+    ctx.fillStyle = grad;
     ctx.fillRect(x, y, w, h);
     ctx.globalAlpha = 1;
   }
@@ -113,6 +133,21 @@ function paintGrade(ctx, rect, grade) {
   light.addColorStop(1, 'rgba(255, 255, 255, 0)');
   ctx.fillStyle = light;
   ctx.fillRect(x, y, w, h * 0.3);
+  ctx.restore();
+}
+
+/** The poster's inked frame: a dark keyline, then the white poster border. */
+function drawPanelFrame(ctx, rect) {
+  const { x, y, w, h } = rect;
+  const outer = Math.max(2, Math.round(w * 0.008));
+  const inner = Math.max(2, Math.round(w * 0.006));
+  ctx.save();
+  ctx.strokeStyle = 'rgba(12, 2, 20, 0.85)';
+  ctx.lineWidth = outer;
+  ctx.strokeRect(x + outer / 2, y + outer / 2, w - outer, h - outer);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.lineWidth = inner;
+  ctx.strokeRect(x + outer + inner / 2, y + outer + inner / 2, w - outer * 2 - inner, h - outer * 2 - inner);
   ctx.restore();
 }
 
@@ -140,12 +175,19 @@ function drawPanelPhoto(ctx, img, rect, panel, grade) {
   ctx.filter = 'none';
   paintGrade(ctx, rect, grade);
   ctx.restore();
-  // The white poster frame around the panel.
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
-  ctx.lineWidth = Math.max(2, Math.round(w * 0.006));
-  ctx.strokeRect(x + ctx.lineWidth / 2, y + ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
-  ctx.restore();
+  drawPanelFrame(ctx, rect);
+}
+
+/** A tiny deterministic random stream, so the grain looks the same on every export. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 let grainTile = null;
@@ -157,8 +199,9 @@ function grain(ctx, w, h) {
     grainTile.height = 180;
     const g = grainTile.getContext('2d');
     const data = g.createImageData(180, 180);
+    const rand = mulberry32(20261119);
     for (let i = 0; i < data.data.length; i += 4) {
-      const v = 118 + Math.floor(Math.random() * 40);
+      const v = 118 + Math.floor(rand() * 40);
       data.data[i] = v;
       data.data[i + 1] = v;
       data.data[i + 2] = v;
@@ -184,6 +227,14 @@ function drawTitleBand(ctx, state, w, h) {
   fade.addColorStop(1, 'rgba(10, 3, 20, 0.96)');
   ctx.fillStyle = fade;
   ctx.fillRect(0, y0 - h * 0.08, w, h - (y0 - h * 0.08));
+
+  // A thin neon rule above the caption, like a marquee strip.
+  const rule = ctx.createLinearGradient(0, 0, w, 0);
+  rule.addColorStop(0, '#ff2d96');
+  rule.addColorStop(0.5, '#ffb35c');
+  rule.addColorStop(1, '#00e5cc');
+  ctx.fillStyle = rule;
+  ctx.fillRect(w * 0.045, y0 + band * 0.10, w * 0.30, Math.max(2, Math.round(h * 0.004)));
 
   const caption = (state.caption || '').trim().toUpperCase();
   if (caption) {
@@ -256,10 +307,8 @@ export function drawCover(canvas, photos, state) {
       ctx.save();
       ctx.fillStyle = '#3a1445';
       ctx.fillRect(rects[i].x, rects[i].y, rects[i].w, rects[i].h);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.lineWidth = Math.max(2, Math.round(rects[i].w * 0.006));
-      ctx.strokeRect(rects[i].x, rects[i].y, rects[i].w, rects[i].h);
       ctx.restore();
+      drawPanelFrame(ctx, rects[i]);
     }
   }
 

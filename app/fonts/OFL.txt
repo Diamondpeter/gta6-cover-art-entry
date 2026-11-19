@@ -1,9 +1,20 @@
-Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+Fonts shipped with Neon Coast Cover Studio
+==========================================
 
-This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is copied below, and is also available with a FAQ at:
-http://scripts.sil.org/OFL
+This app letters its covers with two fonts, both released under the SIL Open
+Font License, Version 1.1, whose full text follows below:
 
+- Anton (Anton-Regular.ttf)
+  Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+  Designed by Vernon Adams. Used for the bold caption lettering.
+
+- Pacifico (Pacifico-Regular.ttf)
+  Copyright 2011 The Pacifico Project Authors (https://github.com/googlefonts/Pacifico)
+  Designed by Vernon Adams. Used for the neon script subtitle.
+
+Both fonts are distributed unmodified, under this license, as the license
+requires: each copy of the Font Software carries its copyright notice and
+this license. No Rockstar Games font is used anywhere in this app.
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

@@ -1,7 +1,8 @@
 // A tiny static server for app/ (Node 22, standard library only), so an entry can be tried
 // locally without a build step: `node serve.ts` serves app/ on http://localhost:8080.
-// It sends the MIME types an offline web app needs, refuses any path outside app/, and otherwise
-// does nothing clever: this is a development convenience, not a web server for the internet.
+// It sends the MIME types an offline web app needs, refuses any path outside app/, and
+// otherwise does nothing clever: this is a development convenience, not a web server
+// for the internet. Pass --port <n> to serve on another port.
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -38,6 +39,10 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+function mimeFor(file: string): string {
+  return MIME[extname(file).toLowerCase()] ?? 'application/octet-stream';
+}
+
 createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://localhost');
   let pathname: string;
@@ -62,11 +67,16 @@ createServer((request, response) => {
     response.writeHead(404).end('not found');
     return;
   }
+  // A HEAD request gets the headers and no body, like any static server.
   response.writeHead(200, {
-    'content-type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
+    'content-type': mimeFor(file),
     'content-length': size,
     'cache-control': 'no-store',
   });
+  if (request.method === 'HEAD') {
+    response.end();
+    return;
+  }
   createReadStream(file).pipe(response);
 }).listen(port, '127.0.0.1', () => {
   console.log(`app/ is on http://localhost:${port}`);

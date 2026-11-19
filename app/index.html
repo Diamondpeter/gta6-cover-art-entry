@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Neon Coast Cover Studio — turn any photo and a caption into GTA-style multi-panel cover art, offline, exported as a PNG.">
 <title>Neon Coast Cover Studio</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -11,6 +13,11 @@
   <section class="controls">
     <h1>Neon Coast Cover Studio</h1>
     <p class="tag">Your photo, your caption — a GTA-style multi-panel cover in seconds. Fully offline; photos never leave this machine.</p>
+    <ol class="steps">
+      <li>Add a photo</li>
+      <li>Arrange the panels</li>
+      <li>Export the PNGs</li>
+    </ol>
 
     <label>Photos (up to 4)
       <input id="photo" type="file" accept="image/*" multiple>
@@ -33,6 +40,11 @@
       <input id="subtitle" type="text" maxlength="40" value="Chasing the golden hour">
     </label>
     <label class="check"><input id="grain" type="checkbox" checked> Film grain</label>
+    <div class="toolbar">
+      <button id="undo" type="button" disabled>Undo</button>
+      <button id="redo" type="button" disabled>Redo</button>
+      <button id="shuffle" type="button">Surprise me</button>
+    </div>
     <label>Preview size
       <select id="preview-size"></select>
     </label>

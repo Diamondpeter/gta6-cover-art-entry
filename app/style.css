@@ -18,15 +18,24 @@ html, body { margin: 0; min-height: 100%; background: #14041f; color: #f5eef8; f
 .controls h2 { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: #ff8fd1; }
 .controls h3 { margin: 0; font-size: 15px; }
 .tag { margin: 0; color: #cbb8d6; }
+.steps { margin: 0; padding-left: 20px; color: #cbb8d6; font-size: 13px; display: flex; gap: 16px; flex-wrap: wrap; list-style: none; }
+.steps li { display: flex; align-items: center; gap: 6px; }
+.steps li::before { content: counter(step); counter-increment: step; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #ff2d96; color: #fff; font-size: 12px; font-weight: 700; }
+.steps { counter-reset: step; }
 label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 500; }
 input[type=text], select { font: inherit; padding: 9px; border: 1px solid #5b3a6e; border-radius: 6px; background: #241130; color: #f5eef8; }
 input[type=file] { font: inherit; }
 button { font: inherit; font-weight: 700; padding: 10px; border: 0; border-radius: 6px; background: #3a1a52; color: #fff; cursor: pointer; }
 button:hover { background: #4d2368; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #00e5cc; outline-offset: 2px; }
 button.primary { background: linear-gradient(90deg, #ff6a3d, #ff2d96); padding: 13px; font-size: 16px; }
 button.primary:hover { filter: brightness(1.1); }
-button:disabled { opacity: 0.6; cursor: default; }
+button:disabled { opacity: 0.45; cursor: default; }
+.toolbar { display: flex; gap: 8px; }
+.toolbar button { flex: 1; padding: 8px 6px; font-size: 13px; }
+#shuffle { background: #0f5f58; }
+#shuffle:hover { background: #12736b; }
 .choices { display: flex; flex-wrap: wrap; gap: 8px; }
 .choice { padding: 8px 10px; font-weight: 600; }
 .choice.on { background: #ff2d96; }

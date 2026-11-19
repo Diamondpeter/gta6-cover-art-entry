@@ -1,6 +1,8 @@
 // Neon Coast Cover Studio — the editor.
 // Wires the page: photos in, panels arranged, caption lettered, PNGs out.
 // A `?shot=` query sets up a fixed scene for a screenshot instead (./shots.js).
+// Every cover change goes through `commit`, which snapshots the state so
+// Undo / Redo (and Ctrl+Z / Ctrl+Shift+Z) can step back through the session.
 import { drawCover, defaultState, panelRects, LAYOUTS, GRADES } from './cover.js';
 import { runShot } from './shots.js';
 
@@ -10,6 +12,8 @@ const subtitleInput = document.getElementById('subtitle');
 const status = document.getElementById('status');
 const tray = document.getElementById('tray');
 const panelBox = document.getElementById('panel-editor');
+const undoBtn = document.getElementById('undo');
+const redoBtn = document.getElementById('redo');
 
 export const SIZES = [
   { key: 'square', label: 'Square 1080 x 1080', w: 1080, h: 1080 },
@@ -22,6 +26,53 @@ let photos = [];
 let selectedPanel = 0;
 let previewSize = SIZES[0];
 let drag = null;
+
+// ---- History: one snapshot per committed change, capped so a long session stays light.
+const history = { past: [], future: [] };
+const HISTORY_LIMIT = 60;
+
+function snapshot() {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function restore(snap) {
+  const keep = state.panels;
+  Object.assign(state, JSON.parse(JSON.stringify(snap)));
+  state.panels = state.panels || keep;
+}
+
+function commit() {
+  // Snapshot the state BEFORE the change, so Undo restores it. Callers redraw.
+  history.past.push(snapshot());
+  if (history.past.length > HISTORY_LIMIT) history.past.shift();
+  history.future.length = 0;
+  syncHistoryButtons();
+}
+
+function undo() {
+  if (!history.past.length) return;
+  history.future.push(snapshot());
+  restore(history.past.pop());
+  syncHistoryButtons();
+  syncControls();
+  renderPanelEditor();
+  redraw();
+}
+
+function redo() {
+  if (!history.future.length) return;
+  history.past.push(snapshot());
+  restore(history.future.pop());
+  syncHistoryButtons();
+  syncControls();
+  renderPanelEditor();
+  redraw();
+}
+
+function syncHistoryButtons() {
+  undoBtn.disabled = history.past.length === 0;
+  redoBtn.disabled = history.future.length === 0;
+}
 
 function redraw() {
   canvas.width = previewSize.w;
@@ -66,6 +117,7 @@ function renderTray() {
     thumb.appendChild(t);
     thumb.appendChild(document.createTextNode(`Photo ${i + 1}`));
     thumb.addEventListener('click', () => {
+      commit();
       state.panels[selectedPanel].photo = i;
       renderPanelEditor();
       redraw();
@@ -97,6 +149,7 @@ function renderPanelEditor() {
   });
   photoSelect.value = String(panel.photo);
   photoSelect.addEventListener('change', () => {
+    commit();
     panel.photo = Number(photoSelect.value);
     redraw();
   });
@@ -111,11 +164,17 @@ function renderPanelEditor() {
   zoom.max = '2.5';
   zoom.step = '0.05';
   zoom.value = String(panel.zoom);
+  // Snapshot once at the start of a slider drag, before the first change,
+  // so one drag is one Undo step — and never rebuild the panel editor
+  // mid-drag, or the slider under the pointer would vanish.
+  let zoomSnapshotTaken = false;
   zoom.addEventListener('input', () => {
+    if (!zoomSnapshotTaken) { commit(); zoomSnapshotTaken = true; }
     panel.zoom = Number(zoom.value);
     zoomLabel.firstChild.textContent = `Zoom — ${panel.zoom.toFixed(2)}x`;
     redraw();
   });
+  zoom.addEventListener('change', () => { zoomSnapshotTaken = false; });
   zoomLabel.appendChild(zoom);
   panelBox.appendChild(zoomLabel);
 
@@ -123,6 +182,7 @@ function renderPanelEditor() {
   centre.type = 'button';
   centre.textContent = 'Centre photo in panel';
   centre.addEventListener('click', () => {
+    commit();
     panel.zoom = 1;
     panel.ox = 0;
     panel.oy = 0;
@@ -158,6 +218,7 @@ function buildControls() {
     b.className = 'choice';
     if (key === state.layout) b.classList.add('on');
     b.addEventListener('click', () => {
+      commit();
       state.layout = key;
       layoutBox.querySelectorAll('.choice').forEach((x) => x.classList.remove('on'));
       b.classList.add('on');
@@ -175,6 +236,7 @@ function buildControls() {
     b.className = 'choice';
     if (key === state.grade) b.classList.add('on');
     b.addEventListener('click', () => {
+      commit();
       state.grade = key;
       gradeBox.querySelectorAll('.choice').forEach((x) => x.classList.remove('on'));
       b.classList.add('on');
@@ -219,18 +281,21 @@ canvas.addEventListener('pointerdown', (e) => {
   selectedPanel = i;
   renderPanelEditor();
   const rects = panelRects(state.layout, canvas.width, canvas.height);
-  drag = { panel: state.panels[i], rect: rects[i], x, y };
+  drag = { panel: state.panels[i], rect: rects[i], x, y, moved: false };
   canvas.setPointerCapture(e.pointerId);
 });
 
 canvas.addEventListener('pointermove', (e) => {
   if (!drag) return;
   const { x, y } = canvasPoint(e);
-  drag.panel.ox += (x - drag.x) / drag.rect.w;
-  drag.panel.oy += (y - drag.y) / drag.rect.h;
-  drag.x = x;
-  drag.y = y;
-  redraw();
+  if (x !== drag.x || y !== drag.y) {
+    if (!drag.moved) { commit(); drag.moved = true; }
+    drag.panel.ox += (x - drag.x) / drag.rect.w;
+    drag.panel.oy += (y - drag.y) / drag.rect.h;
+    drag.x = x;
+    drag.y = y;
+    redraw();
+  }
 });
 
 canvas.addEventListener('pointerup', () => { drag = null; });
@@ -242,6 +307,7 @@ canvas.addEventListener('wheel', (e) => {
   if (i < 0) return;
   selectedPanel = i;
   const panel = state.panels[i];
+  commit();
   panel.zoom = Math.min(2.5, Math.max(1, panel.zoom * (e.deltaY < 0 ? 1.08 : 0.92)));
   renderPanelEditor();
   redraw();
@@ -266,17 +332,55 @@ document.getElementById('samples').addEventListener('click', async () => {
   status.textContent = 'Sample photos loaded.';
 });
 
+// Snapshot once when typing starts in a caption field, before the first
+// keystroke changes the state, so one edit is one Undo step.
+let captionSnapshotTaken = false;
+captionInput.addEventListener('focus', () => { captionSnapshotTaken = false; });
 captionInput.addEventListener('input', () => {
+  if (!captionSnapshotTaken) { commit(); captionSnapshotTaken = true; }
   state.caption = captionInput.value;
   redraw();
 });
+let subtitleSnapshotTaken = false;
+subtitleInput.addEventListener('focus', () => { subtitleSnapshotTaken = false; });
 subtitleInput.addEventListener('input', () => {
+  if (!subtitleSnapshotTaken) { commit(); subtitleSnapshotTaken = true; }
   state.subtitle = subtitleInput.value;
   redraw();
 });
 document.getElementById('grain').addEventListener('change', (e) => {
+  commit();
   state.grain = e.target.checked;
   redraw();
+});
+
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) redo();
+    else undo();
+  }
+});
+
+document.getElementById('shuffle').addEventListener('click', () => {
+  commit();
+  const layouts = Object.keys(LAYOUTS);
+  const grades = Object.keys(GRADES);
+  state.layout = layouts[Math.floor(Math.random() * layouts.length)];
+  state.grade = grades[Math.floor(Math.random() * grades.length)];
+  // Deal the photos round the panels in a fresh order.
+  const order = state.panels.map((p) => p.photo);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  state.panels.forEach((p, i) => { p.photo = order[i]; p.zoom = 1; p.ox = 0; p.oy = 0; });
+  syncControls();
+  renderPanelEditor();
+  redraw();
+  status.textContent = `Surprise: ${LAYOUTS[state.layout].label} · ${GRADES[state.grade].label}.`;
 });
 
 document.getElementById('export').addEventListener('click', async () => {
@@ -305,6 +409,7 @@ document.getElementById('export').addEventListener('click', async () => {
 
 buildControls();
 renderPanelEditor();
+syncHistoryButtons();
 
 const shot = new URLSearchParams(location.search).get('shot');
 if (shot) {
